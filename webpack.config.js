@@ -6,11 +6,11 @@ module.exports = {
   mode: 'production',
   devtool: false,
   entry: {
-    scrapingScript: './src/scrapingScript.ts',
-    popup: './src/popup.ts',
-    background: './src/background.ts',
-    offscreen: './src/offscreen.ts',
-    micsetup: './src/micsetup.ts',
+    scrapingScript: './src/content/scrapingScript.ts',
+    popup: './src/popup/popup.ts',
+    background: './src/background/background.ts',
+    offscreen: './src/offscreen/offscreen.ts',
+    micsetup: './src/micsetup/micsetup.ts',
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -30,11 +30,13 @@ module.exports = {
     new CleanWebpackPlugin(),
     new CopyWebpackPlugin({
       patterns: [
-        { from: 'manifest.json',  to: 'manifest.json' },
-        { from: 'popup.html',     to: 'popup.html' },
-        { from: 'offscreen.html', to: 'offscreen.html', noErrorOnMissing: true },
-        { from: 'micsetup.html', to: 'micsetup.html' },
-        { from: 'asset', to: 'asset' },
+        { from: 'manifest.json',                to: 'manifest.json' },
+        { from: 'src/popup/popup.html',         to: 'popup.html' },
+        { from: 'src/popup/popup.css',          to: 'popup.css' },
+        { from: 'src/offscreen/offscreen.html', to: 'offscreen.html', noErrorOnMissing: true },
+        { from: 'src/micsetup/micsetup.html',   to: 'micsetup.html' },
+        { from: 'src/micsetup/micsetup.css',    to: 'micsetup.css' },
+        { from: 'src/assets',                   to: 'assets' },
       ]
     })
   ]
