@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>MeetTrace</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="header">
+      <img src="assets/icons-black-100.png" alt="MeetTrace" />
+      <h1>MeetTrace</h1>
+      <button id="theme-toggle" class="theme-btn" title="Toggle dark mode">🌙</button>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Recording</div>
+      <div class="btn-row">
+        <button id="start-rec" class="btn btn-primary">Start Recording</button>
+        <button id="stop-rec" class="btn btn-danger" disabled>Stop &amp; Download</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section">
+      <button id="save" class="btn btn-outline btn-full">Download Transcript</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section">
+      <div class="section-label">Keyword Alerts</div>
+      <div id="keyword-input-row">
+        <input id="keyword-input" type="text" placeholder="Enter keyword" />
+        <button id="keyword-add" class="btn btn-primary">Add</button>
+      </div>
+      <div id="keyword-tags">
+        <span id="keyword-empty">No keywords set</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="accordion">
+      <div class="acc-item collapsed">
+        <button class="acc-header" data-target="acc-settings">
+          <span>Settings</span>
+          <span class="acc-arrow">▾</span>
+        </button>
+        <div class="acc-body" id="acc-settings">
+          <div class="toggle-row">
+            <span class="toggle-label">Auto-enable captions on join</span>
+            <label class="toggle">
+              <input type="checkbox" id="auto-captions" />
+              <div class="toggle-track"></div>
+              <div class="toggle-thumb"></div>
+            </label>
+          </div>
+          <div class="divider"></div>
+          <button id="enable-mic" class="btn btn-outline btn-full">Enable Microphone</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
