@@ -62,6 +62,7 @@ interface Chunk {
   endTime: number
   speaker: string
   text: string
+  rawText: string
 }
 type OpenChunk = Chunk & { timer: number }
 
@@ -70,6 +71,7 @@ const CHUNK_GRACE_MS = 2000
 const prior = new Map<string, OpenChunk>()
 const lastSeen = new Map<string, string>()
 const lastCommitted = new Map<string, string>()
+const lastRawAtCommit = new Map<string, string>()
 
 const normalize = (pre: string) =>
   pre.toLowerCase().replace(/[.,?!'"\u2019]/g, "").replace(/\s+/g, " ").trim()
@@ -99,8 +101,8 @@ function handleCaption(speakerKey: string, speakerName: string, rawText: string)
   const existing = prior.get(speakerKey)
 
   if (!existing){
-    const prevCommit = lastCommitted.get(speakerKey) ?? ''
-    const newText = stripPrefix(text, prevCommit)
+    const prevRaw = lastRawAtCommit.get(speakerKey) ?? ''
+    const newText = stripPrefix(text, prevRaw)
     if (!newText) return
     const timer = window.setTimeout(() => commit(speakerKey), CHUNK_GRACE_MS)
     prior.set(speakerKey, {
@@ -108,29 +110,32 @@ function handleCaption(speakerKey: string, speakerName: string, rawText: string)
       endTime: now,
       speaker: speakerName,
       text: newText,
+      rawText: text,
       timer
     })
     return
   }
 
   existing.endTime = now
-  const prevCommit = lastCommitted.get(speakerKey) ?? ''
-  existing.text = stripPrefix(text, prevCommit) || existing.text
+  const prevRaw = lastRawAtCommit.get(speakerKey) ?? ''
+  const stripped = stripPrefix(text, prevRaw)
+  if (stripped) {
+    existing.text = stripped
+    existing.rawText = text
+  }
   existing.speaker = speakerName
 
   clearTimeout(existing.timer)
   existing.timer = window.setTimeout(() => commit(speakerKey), CHUNK_GRACE_MS)
 }
 
-function stripPrefix(text: string, prefix: string): string {
-  if (!prefix) return text
+function stripPrefix(text: string, prevRaw: string): string {
+  if (!prevRaw) return text
   const normText = normalize(text)
-  const normPrefix = normalize(prefix)
-  if (normText.startsWith(normPrefix)) {
-    const stripped = text.slice(prefix.length).replace(/^[\s,.:;]+/, '').trim()
-    return stripped
-  }
-  return text
+  const normPrev = normalize(prevRaw)
+  if (!normText.startsWith(normPrev)) return text
+  const stripped = text.slice(prevRaw.length).replace(/^[\s,.:;]+/, '').trim()
+  return stripped
 }
 
 function commit(key: string){
@@ -141,6 +146,7 @@ function commit(key: string){
   const line = `[${startTS}] ${entry.speaker}: ${entry.text}`.trim()
   transcript.push(line)
   lastCommitted.set(key, entry.text)
+  lastRawAtCommit.set(key, entry.rawText)
   console.debug(`[transcript committed] ${line}`)
   clearTimeout(entry.timer)
   prior.delete(key)
@@ -217,6 +223,7 @@ new MutationObserver(() => {
     prior.clear()
     lastSeen.clear()
     lastCommitted.clear()
+    lastRawAtCommit.clear()
     transcript.length = 0
   }
   
@@ -230,6 +237,7 @@ new MutationObserver(() => {
       prior.clear()
       lastSeen.clear()
       lastCommitted.clear()
+      lastRawAtCommit.clear()
       transcript.length = 0
       sendResponse({ ok: true })
       return true
