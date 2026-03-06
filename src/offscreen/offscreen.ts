@@ -108,6 +108,7 @@ function mixAudio(tabStream: MediaStream, micStream: MediaStream | null): MediaS
   try {
     const tabSource = ctx.createMediaStreamSource(new MediaStream([tabAudio]))
     tabSource.connect(dst)
+    tabSource.connect(ctx.destination)
   } catch (err) {
     log('tab source connect failed for mixing; using tab audio only', err)
     return tabStream
@@ -118,6 +119,7 @@ function mixAudio(tabStream: MediaStream, micStream: MediaStream | null): MediaS
     if (micTrack) {
       const micSource = ctx.createMediaStreamSource(new MediaStream([micTrack]))
       micSource.connect(dst)
+      micSource.connect(ctx.destination)
     }
   } catch (e) {
     log('mic source connect failed; continuing with tab audio only', e)
@@ -136,10 +138,7 @@ function mixAudio(tabStream: MediaStream, micStream: MediaStream | null): MediaS
 function makeConstraints(streamId: string, source: 'tab' | 'desktop'): MediaStreamConstraints {
   const mandatory = { chromeMediaSource: source, chromeMediaSourceId: streamId } as any
   return {
-    audio: {
-      mandatory,
-      optional: [{ googDisableLocalEcho: false }]
-    } as any,
+    audio: { mandatory } as any,
     video: {
       mandatory: {
         ...mandatory,

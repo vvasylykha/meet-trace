@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "MeetTrace",
     "description": "Record and transcribe your Google Meet sessions with one click.",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "icons": {
         "100": "assets/icons-white-100.png"
     },
@@ -14,6 +14,6 @@
       { "matches": ["https://meet.google.com/*"], "js": ["scrapingScript.js"], "run_at": "document_idle" }
     ],
     "web_accessible_resources": [
-      { "resources": ["offscreen.html", "assets/alert-32.png"], "matches": ["<all_urls>"] }
+      { "resources": ["offscreen.html", "history.html", "assets/alert-32.png", "assets/icons-black-100.png", "assets/icons-white-100.png"], "matches": ["<all_urls>"] }
     ]
   }

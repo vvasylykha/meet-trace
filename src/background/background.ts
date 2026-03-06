@@ -4,6 +4,9 @@ let offscreenPort: chrome.runtime.Port | null = null
 let offscreenReady = false
 let lastKnownRecording = false
 
+let activeRecordingTabId: number | null = null
+let recordingStartedAt: number | null = null
+
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms))
 function bglog(...a: any[]) { console.debug('[background]', ...a) }
 function setBadge(recording: boolean) {
@@ -66,9 +69,49 @@ chrome.runtime.onConnect.addListener((port) => {
     }
 
     if (msg?.type === 'RECORDING_STATE') {
+      const wasRecording = lastKnownRecording
       lastKnownRecording = !!msg.recording
       setBadge(lastKnownRecording)
       chrome.runtime.sendMessage({ type: 'RECORDING_STATE', recording: lastKnownRecording }).catch(() => {})
+
+      if (wasRecording && !lastKnownRecording && activeRecordingTabId != null) {
+        const endedAt = Date.now()
+        const startedAt = recordingStartedAt ?? endedAt
+        const tabId = activeRecordingTabId
+        activeRecordingTabId = null
+        recordingStartedAt = null
+
+        chrome.tabs.get(tabId, (tab) => {
+          if (chrome.runtime.lastError) { bglog('Could not get tab for auto-save:', chrome.runtime.lastError.message); return }
+          let meetingId = 'meet-trace'
+          try {
+            const u = new URL(tab.url ?? '')
+            meetingId = u.pathname.split('/').pop() || 'meet-trace'
+          } catch {}
+
+          chrome.tabs.sendMessage(tabId, { type: 'GET_TRANSCRIPT' }, (res) => {
+            if (chrome.runtime.lastError) { bglog('GET_TRANSCRIPT error:', chrome.runtime.lastError.message); return }
+            const transcript: string = (res as any)?.transcript ?? ''
+            const record = {
+              id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              meetingId,
+              startedAt,
+              endedAt,
+              duration: Math.round((endedAt - startedAt) / 1000),
+              transcript,
+              tags: [],
+              notes: ''
+            }
+            chrome.storage.local.get('pendingCallRecords', (result) => {
+              const queue: any[] = Array.isArray(result.pendingCallRecords) ? result.pendingCallRecords : []
+              queue.push(record)
+              chrome.storage.local.set({ pendingCallRecords: queue }, () => {
+                bglog('Call record queued for storage:', record.id)
+              })
+            })
+          })
+        })
+      }
     }
 
     if (msg?.type === 'OFFSCREEN_SAVE') {
@@ -163,6 +206,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
         if (r?.ok) {
           lastKnownRecording = true
+          activeRecordingTabId = tabId
+          recordingStartedAt = Date.now()
           setBadge(true)
           chrome.runtime.sendMessage({ type: 'RECORDING_STATE', recording: true }).catch(() => {})
           sendResponse({ ok: true })

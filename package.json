@@ -1,15 +1,29 @@
 {
     "name": "meet-trace",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "scripts": {
         "build": "webpack --mode=production",
         "watch": "webpack --watch"
     },
     "devDependencies": {
+        "@babel/core": "^7.29.0",
+        "@babel/preset-env": "^7.29.0",
+        "@babel/preset-react": "^7.28.5",
+        "@babel/preset-typescript": "^7.28.5",
         "@types/chrome": "^0.0.326",
         "@types/node": "^24.0.4",
+        "@types/react": "^19.2.14",
+        "@types/react-dom": "^19.2.3",
+        "@types/uuid": "^10.0.0",
+        "autoprefixer": "^10.4.27",
+        "babel-loader": "^10.1.0",
         "clean-webpack-plugin": "^4.0.0",
         "copy-webpack-plugin": "^13.0.1",
+        "css-loader": "^7.1.4",
+        "mini-css-extract-plugin": "^2.10.0",
+        "postcss-loader": "^8.2.1",
+        "style-loader": "^4.0.0",
+        "tailwindcss": "^4.2.1",
         "ts-loader": "^9.5.0",
         "typescript": "^5.8.3",
         "webpack": "^5.99.9",
@@ -19,5 +33,13 @@
     "keywords": [],
     "author": "",
     "license": "ISC",
-    "description": ""
+    "description": "",
+    "dependencies": {
+        "@tailwindcss/postcss": "^4.2.1",
+        "idb": "^8.0.3",
+        "lucide-react": "^0.577.0",
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4",
+        "uuid": "^13.0.0"
+    }
 }

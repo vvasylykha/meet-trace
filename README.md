@@ -1,10 +1,20 @@
 # MeetTrace (Chrome Extension)
 
-Scrape live captions from a Google Meet and save them as a `.txt` transcript, or record the current Google Meet tab (video + audio) to a `.webm` file. Optionally, mix in your microphone so your own voice is included in the recording. Set keyword alerts to get a desktop notification whenever a specific word is spoken.
+Scrape live captions from a Google Meet and save them as a `.txt` transcript, or record the current Google Meet tab (video + audio) to a `.webm` file. Transcripts are automatically saved to a local browser database after every call. Browse, search, filter, tag, and export your full call history from a dedicated page.
 
 ## Features
 
 **Transcript saver** – parses Google Meet's live captions and downloads a clean timestamped `.txt` file. Duplicate/incremental caption text is automatically deduplicated so each line contains only new speech.
+
+**Automatic call history** – every transcript is automatically saved to IndexedDB when a recording stops. No manual action required.
+
+**Call History page** – full-tab React UI with:
+- Sortable table of all past calls (date, meeting ID, duration, tags, transcript preview)
+- Text search across transcripts and meeting IDs
+- Filter by tag and date range
+- Inline free-text tag editor per record
+- Batch or single-record deletion with confirmation
+- Export visible records as **JSON**, **CSV**, or **TXT**
 
 **Keyword alerts** – define a list of keywords; whenever one is detected in live captions a Chrome desktop notification fires instantly.
 
@@ -18,11 +28,13 @@ Scrape live captions from a Google Meet and save them as a `.txt` transcript, or
 
 1. Content script (`scrapingScript.ts`) watches the Google Meet caption DOM, buffers speech chunks per speaker with a 2-second grace period, deduplicates incremental text, and commits finalized lines to the transcript.
 
-2. Popup lets you download the transcript, manage keyword alerts, or control recording.
+2. Popup (React) lets you download the transcript, manage keyword alerts, control recording, and open the Call History page.
 
-3. Background service worker creates/coordinates an offscreen document and requests the correct capture `streamId` for the active tab. It also handles `KEYWORD_FOUND` messages and fires Chrome notifications.
+3. Background service worker creates/coordinates an offscreen document and requests the correct capture `streamId` for the active tab. When recording stops, it fetches the transcript from the content script and queues a `CallRecord` in `chrome.storage.local`.
 
 4. Offscreen page captures the tab, optionally mixes microphone audio, records, and hands the blob back for download.
+
+5. Call History page (React) drains the `chrome.storage.local` queue into IndexedDB on load and reacts to new records in real time via `chrome.storage.onChanged`.
 
 ## Requirements
 
@@ -110,7 +122,7 @@ This compiles TypeScript via `ts-loader` and copies HTML/CSS/assets/manifest to 
       - **Enable Microphone** – click before starting to capture your audio alongside other participants.
         - The mic prompt may not appear reliably in a popup. If so, the button opens a dedicated `Enable Microphone` page (`micsetup.html`) where you can click `Enable` and allow mic access.
         - Once granted, the label changes to `Microphone Enabled`.
-      - **Start Recording**: starts a recording of the current tab (video + system audio). If mic is enabled and mixing is on (default), your mic is mixed in.
+      - **Start**: starts a recording of the current tab (video + system audio). If mic is enabled and mixing is on (default), your mic is mixed in.
       - **Stop & Download**: finalizes and downloads `meet-trace-recording-<meeting-id>-<timestamp>.webm`.
 
 > The extension shows a **REC** badge while recording. All files are saved locally via Chrome's Downloads API.
@@ -131,11 +143,22 @@ Google Meet incrementally grows caption text in the DOM. MeetTrace deduplicates 
 ├─ manifest.json
 ├─ webpack.config.js
 ├─ tsconfig.json
+├─ tailwind.config.js
+├─ postcss.config.js
 ├─ package.json
 ├─ src/
 │  ├─ assets/                  # extension icons and alert image
+│  ├─ styles/
+│  │  └─ global.css            # Tailwind CSS entry point
+│  ├─ shared/
+│  │  ├─ types.ts              # CallRecord interface
+│  │  ├─ useCallRecords.ts     # React hook: load/drain/CRUD for IndexedDB records
+│  │  └─ export.ts             # JSON / CSV / TXT export helpers
+│  ├─ db/
+│  │  └─ db.ts                 # IndexedDB wrapper via idb (callRecords store)
 │  ├─ background/
-│  │  └─ background.ts         # MV3 service worker: offscreen lifecycle, stream capture, notifications
+│  │  └─ background.ts         # MV3 service worker: offscreen lifecycle, stream capture,
+│  │                           # transcript auto-save to chrome.storage.local queue
 │  ├─ content/
 │  │  └─ scrapingScript.ts     # caption DOM observer, chunk buffering, deduplication, keyword detection
 │  ├─ offscreen/
@@ -143,8 +166,19 @@ Google Meet incrementally grows caption text in the DOM. MeetTrace deduplicates 
 │  │  └─ offscreen.ts          # MediaRecorder: tab + mic mix, blob → download
 │  ├─ popup/
 │  │  ├─ popup.html
-│  │  ├─ popup.css
-│  │  └─ popup.ts              # popup UI: transcript download, keyword alerts, recording controls
+│  │  ├─ index.tsx             # React entry point
+│  │  └─ App.tsx               # popup UI (React): recording controls, keywords, settings, history link
+│  ├─ history/
+│  │  ├─ history.html
+│  │  ├─ index.tsx             # React entry point
+│  │  ├─ App.tsx               # history page shell
+│  │  └─ components/
+│  │     ├─ CallTable.tsx      # sortable table with inline tag editing
+│  │     ├─ FilterBar.tsx      # text search + tag filter + date range
+│  │     ├─ TagEditor.tsx      # inline add/remove tags per record
+│  │     ├─ ExportMenu.tsx     # JSON / CSV / TXT export dropdown
+│  │     ├─ DeleteConfirmDialog.tsx  # confirmation modal
+│  │     └─ TranscriptModal.tsx      # full transcript viewer
 │  └─ micsetup/
 │     ├─ micsetup.html
 │     ├─ micsetup.css

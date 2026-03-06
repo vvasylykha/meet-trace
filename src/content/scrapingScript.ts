@@ -7,13 +7,26 @@ const AUTO_CAPTIONS_STORAGE_KEY = 'autoCaptions'
 let autoCaptionsEnabled = false
 let autoCaptionsTriggered = false
 
-chrome.storage.sync.get(AUTO_CAPTIONS_STORAGE_KEY, (res) => {
+let meetingStartedAt: number | null = null
+let meetingActive = false
+let autoSaveEnabled = true
+let transcriptSaved = false
+
+const AUTO_SAVE_STORAGE_KEY = 'autoSaveTranscripts'
+
+chrome.storage.sync.get([AUTO_CAPTIONS_STORAGE_KEY, AUTO_SAVE_STORAGE_KEY], (res) => {
   autoCaptionsEnabled = res[AUTO_CAPTIONS_STORAGE_KEY] === true
+  autoSaveEnabled = res[AUTO_SAVE_STORAGE_KEY] !== false
 })
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'sync' && AUTO_CAPTIONS_STORAGE_KEY in changes) {
-    autoCaptionsEnabled = changes[AUTO_CAPTIONS_STORAGE_KEY].newValue === true
+  if (area === 'sync') {
+    if (AUTO_CAPTIONS_STORAGE_KEY in changes) {
+      autoCaptionsEnabled = changes[AUTO_CAPTIONS_STORAGE_KEY].newValue === true
+    }
+    if (AUTO_SAVE_STORAGE_KEY in changes) {
+      autoSaveEnabled = changes[AUTO_SAVE_STORAGE_KEY].newValue !== false
+    }
   }
 })
 
@@ -84,6 +97,8 @@ function handleCaption(speakerKey: string, speakerName: string, rawText: string)
   const prev = lastSeen.get(speakerKey)
   if (prev === norm) return
   lastSeen.set(speakerKey, norm)
+
+  if (!meetingActive) startMeetingSession()
 
   console.debug(`[caption] ${speakerName}: ${text}`)
 
@@ -239,9 +254,91 @@ new MutationObserver(() => {
       lastCommitted.clear()
       lastRawAtCommit.clear()
       transcript.length = 0
+      transcriptSaved = false
       sendResponse({ ok: true })
       return true
     }
   })
 
-console.debug('Transcript collector ready')
+function getMeetingIdFromUrl(): string {
+  try {
+    const url = new URL(window.location.href)
+    return url.pathname.split('/').pop() || 'meet-trace'
+  } catch {
+    return 'meet-trace'
+  }
+}
+
+function saveTranscriptToHistory() {
+  if (transcriptSaved) {
+    console.debug('[scrapingScript] Transcript already saved for this session')
+    return
+  }
+  
+  if (!autoSaveEnabled) {
+    console.debug('[scrapingScript] Auto-save disabled, skipping')
+    return
+  }
+  
+  if (transcript.length === 0) {
+    console.debug('[scrapingScript] No transcript to save')
+    return
+  }
+
+  transcriptSaved = true
+
+  const endedAt = Date.now()
+  const startedAt = meetingStartedAt ?? endedAt
+  const meetingId = getMeetingIdFromUrl()
+
+  ;[...prior.keys()].forEach(commit)
+
+  const recordId = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const record = {
+    id: recordId,
+    meetingId,
+    startedAt,
+    endedAt,
+    duration: Math.round((endedAt - startedAt) / 1000),
+    transcript: transcript.join('\n'),
+    tags: [],
+    notes: ''
+  }
+
+  try {
+    const storageKey = `pendingRecord_${recordId}`
+    chrome.storage.local.set({ [storageKey]: record }, () => {
+      if (chrome.runtime.lastError) {
+        console.warn('[scrapingScript] Storage set error:', chrome.runtime.lastError)
+      } else {
+        console.debug('[scrapingScript] Transcript auto-saved to history:', record.id)
+      }
+    })
+  } catch (e) {
+    console.error('[scrapingScript] Failed to save transcript:', e)
+  }
+}
+
+function startMeetingSession() {
+  if (meetingActive) return
+  meetingActive = true
+  meetingStartedAt = Date.now()
+  transcriptSaved = false
+  console.debug('[scrapingScript] Meeting session started')
+}
+
+function endMeetingSession() {
+  if (!meetingActive) return
+  console.debug('[scrapingScript] Meeting session ending, saving transcript...')
+  saveTranscriptToHistory()
+  meetingActive = false
+  meetingStartedAt = null
+}
+
+window.addEventListener('beforeunload', () => {
+  endMeetingSession()
+})
+
+window.addEventListener('pagehide', () => {
+  endMeetingSession()
+})
